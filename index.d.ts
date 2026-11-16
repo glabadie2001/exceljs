@@ -552,9 +552,10 @@ export interface Row extends Style {
 	readonly number: number;
 
 	/**
-	 * Indicate the collapsed state based on outlineLevel
+	 * Collapsed state. Set it on the summary row of a closed group; when not
+	 * set it is derived from outlineLevel.
 	 */
-	readonly collapsed: boolean;
+	collapsed: boolean;
 
 	/**
 	 * Number of cells including empty ones
@@ -1359,6 +1360,12 @@ export interface Worksheet {
 	 * Add a new table and return a reference to it
 	 */
 	addTable(tableProperties: TableProperties): Table;
+
+	/**
+	 * Add a pivot table to this sheet over the data of another sheet.
+	 * At most one pivot table per workbook.
+	 */
+	addPivotTable(model: PivotTableModel): void;
 	/**
 	 * fetch table by name or id
 	 */
@@ -2037,4 +2044,32 @@ export namespace stream {
 			getColumn(c: number): Column;
 		}
 	}
+}
+
+export type PivotTableMetric = 'sum' | 'count' | 'average' | 'max' | 'min' | 'product' | 'countNums' | 'stdDev' | 'stdDevp' | 'var' | 'varp';
+
+export interface PivotTableValue {
+	/** header name in the source sheet */
+	name: string;
+	metric?: PivotTableMetric;
+	/** data field caption; defaults to "Sum of <name>" */
+	caption?: string;
+	numFmtId?: number;
+}
+
+export interface PivotTableModel {
+	/** header names in row 1, data below */
+	sourceSheet: Worksheet;
+	/** row fields, outer first */
+	rows: string[];
+	columns?: string[];
+	values: (string | PivotTableValue)[];
+	/** default metric for string values */
+	metric?: PivotTableMetric;
+	/** outer row items start collapsed */
+	collapsed?: boolean;
+	/** text shown in empty data cells, e.g. '0' */
+	missingCaption?: string;
+	rowHeaderCaption?: string;
+	name?: string;
 }
