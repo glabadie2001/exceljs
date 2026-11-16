@@ -143,6 +143,71 @@ describe('Workbook', () => {
     });
   });
 
+  describe('Pivot table filters and sort by value', () => {
+    // Jobs: A-100 2, B-200 0, C-300 1. Qty in C-300 > J-2 (12.5) > J-1 (4).
+    const sorted = {
+      filters: ['Description'],
+      sort: [
+        {field: 'Item', by: 'Jobs', order: 'descending'},
+        {field: 'Job', by: 'Qty', order: 'descending'},
+      ],
+    };
+
+    it('writes page fields above a moved pivot', async () => {
+      const read = await parts(jobsWorkbook(sorted));
+      const xml = await read('xl/pivotTables/pivotTable1.xml');
+
+      expect(xml).to.contain(
+        '<pivotField axis="axisPage" showAll="0"><items count="4"><item x="0"/><item x="1"/>' +
+          '<item x="2"/><item t="default"/></items></pivotField>'
+      );
+      expect(xml).to.contain('<pageFields count="1"><pageField fld="1" hier="-1"/></pageFields>');
+      // Filter in row 1, a blank row, then the pivot from row 3.
+      expect(xml).to.contain(
+        '<location ref="A3:C11" firstHeaderRow="0" firstDataRow="1" firstDataCol="1" rowPageCount="1" colPageCount="1"/>'
+      );
+      expect(xml.indexOf('<pageFields')).to.be.above(xml.indexOf('</colItems>'));
+      expect(xml.indexOf('<pageFields')).to.be.below(xml.indexOf('<dataFields'));
+    });
+
+    it('moves the pivot down by one row per filter', async () => {
+      const read = await parts(jobsWorkbook({filters: ['Description', 'Qty']}));
+      expect(await read('xl/pivotTables/pivotTable1.xml')).to.contain('<location ref="A4:C12"');
+    });
+
+    it('writes sortType and an autoSortScope on the data field', async () => {
+      const read = await parts(jobsWorkbook(sorted));
+      const xml = await read('xl/pivotTables/pivotTable1.xml');
+      const scope = x =>
+        '<autoSortScope><pivotArea dataOnly="0" outline="0" fieldPosition="0">' +
+        '<references count="1"><reference field="4294967294" count="1" selected="0">' +
+        `<x v="${x}"/></reference></references></pivotArea></autoSortScope>`;
+
+      expect(xml).to.match(
+        new RegExp(`<pivotField axis="axisRow" showAll="0" sortType="descending">.*?${scope(0)}`)
+      );
+      expect(xml).to.contain(`<item t="default"/></items>${scope(1)}</pivotField>`);
+      expect(xml).to.contain(
+        '<pivotField axis="axisRow" dataField="1" showAll="0" sortType="descending">'
+      );
+      // Rows follow the sort: A-100 (2 jobs) > J-2 (6), J-1 (4); C-300 (1); B-200 (0).
+      expect(xml).to.contain(
+        '<rowItems count="8"><i><x/></i><i r="1"><x v="1"/></i><i r="1"><x/></i>' +
+          '<i><x v="2"/></i><i r="1"><x v="1"/></i>' +
+          '<i><x v="1"/></i><i r="1"><x v="2"/></i><i t="grand"><x/></i></rowItems>'
+      );
+    });
+
+    it('rejects a bad filter or sort', () => {
+      expect(() => jobsWorkbook({filters: ['Item']})).to.throw(/filter and a row/);
+      expect(() => jobsWorkbook({sort: [{field: 'Qty'}]})).to.throw(/not a row or column/);
+      expect(() => jobsWorkbook({sort: [{field: 'Item', by: 'Nope'}]})).to.throw(
+        /matches no value/
+      );
+      expect(() => jobsWorkbook({sort: [{field: 'Item', order: 'up'}]})).to.throw(/Sort order/);
+    });
+  });
+
   describe('Row outline', () => {
     it('writes a collapsed summary row above its hidden detail rows', async () => {
       const workbook = new ExcelJS.Workbook();

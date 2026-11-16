@@ -2071,5 +2071,17 @@ export interface PivotTableModel {
 	/** text shown in empty data cells, e.g. '0' */
 	missingCaption?: string;
 	rowHeaderCaption?: string;
+	/** page fields above the pivot; "(All)" is selected */
+	filters?: string[];
+	/** auto-sort of row or column fields */
+	sort?: PivotTableSort[];
 	name?: string;
+}
+
+export interface PivotTableSort {
+	/** a row or column field */
+	field: string;
+	/** value caption or value field name; omit to sort by item label */
+	by?: string;
+	order?: 'ascending' | 'descending';
 }
