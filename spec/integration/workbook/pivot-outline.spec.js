@@ -208,6 +208,33 @@ describe('Workbook', () => {
     });
   });
 
+  describe('Pivot table over a large source', () => {
+    it('builds 200,000 records under a small stack (no argument spread)', function() {
+      this.timeout(120000);
+      // A browser worker has a much smaller stack than Node's main thread;
+      // `Math.max(...column)` overflows there. Run in a child with a small stack.
+      const lib = require.resolve('../../../lib/exceljs.nodejs.js');
+      const script = `
+        const ExcelJS = require(${JSON.stringify(lib)});
+        const wb = new ExcelJS.Workbook();
+        const data = wb.addWorksheet('Data');
+        data.addRow(['Item', 'Job', 'Qty']);
+        for (let i = 0; i < 200000; i++) data.addRow(['I' + (i % 5000), 'J' + (i % 7), i]);
+        wb.addWorksheet('Pivot').addPivotTable({
+          sourceSheet: data,
+          rows: ['Item', 'Job'],
+          values: [{name: 'Qty', metric: 'max'}, {name: 'Job', metric: 'count'}],
+          sort: [{field: 'Item', by: 'Qty', order: 'descending'}],
+        });
+        const cache = wb.pivotTables[0].cacheFields[2];
+        if (cache.minValue !== 0 || cache.maxValue !== 199999) throw new Error('min/max');
+      `;
+      require('child_process').execFileSync(process.execPath, ['--stack-size=200', '-e', script], {
+        stdio: 'pipe',
+      });
+    });
+  });
+
   describe('Row outline', () => {
     it('writes a collapsed summary row above its hidden detail rows', async () => {
       const workbook = new ExcelJS.Workbook();
