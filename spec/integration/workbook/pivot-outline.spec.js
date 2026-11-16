@@ -208,6 +208,33 @@ describe('Workbook', () => {
     });
   });
 
+  describe('Pivot table without saved records (saveData: false)', () => {
+    it('drops the records part, its relationship and its content type', async () => {
+      const read = await parts(jobsWorkbook({saveData: false}));
+      const definition = await read('xl/pivotCache/pivotCacheDefinition1.xml');
+
+      expect(await read('xl/pivotCache/pivotCacheRecords1.xml')).to.be.undefined();
+      expect(await read('xl/pivotCache/_rels/pivotCacheDefinition1.xml.rels')).to.be.undefined();
+      expect(await read('[Content_Types].xml')).not.to.contain('pivotCacheRecords');
+      expect(definition).to.contain('saveData="0"');
+      expect(definition).to.contain('refreshOnLoad="1"');
+      expect(definition).not.to.contain('r:id=');
+      // Shared items stay: pivotField items index into them. rowItems go.
+      expect(definition).to.contain(
+        '<sharedItems containsBlank="1" count="3"><s v="J-1"/><s v="J-2"/><m/></sharedItems>'
+      );
+      expect(await read('xl/pivotTables/pivotTable1.xml')).not.to.contain('<rowItems');
+    });
+
+    it('keeps the records by default', async () => {
+      const read = await parts(jobsWorkbook());
+      const definition = await read('xl/pivotCache/pivotCacheDefinition1.xml');
+      expect(definition).to.contain('r:id="rId1"');
+      expect(definition).not.to.contain('saveData');
+      expect(await read('xl/pivotCache/pivotCacheRecords1.xml')).to.contain('<r>');
+    });
+  });
+
   describe('Pivot table over a large source', () => {
     it('builds 200,000 records under a small stack (no argument spread)', function() {
       this.timeout(120000);

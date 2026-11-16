@@ -2073,6 +2073,8 @@ export interface PivotTableModel {
 	rowHeaderCaption?: string;
 	/** page fields above the pivot; "(All)" is selected */
 	filters?: string[];
+	/** false: write no cache records; Excel rebuilds them on open (default true) */
+	saveData?: boolean;
 	/** auto-sort of row or column fields */
 	sort?: PivotTableSort[];
 	name?: string;
