@@ -262,6 +262,41 @@ describe('Workbook', () => {
     });
   });
 
+  describe('Pivot table over given records', () => {
+    it('reads names and records from source, not from the sheet cells', async () => {
+      const workbook = new ExcelJS.Workbook();
+      const data = workbook.addWorksheet('Data');
+      data.addRow(DATA[0]); // the caller writes the rows itself
+      workbook.addWorksheet('Pivot').addPivotTable({
+        sourceSheet: data,
+        source: {names: DATA[0], records: DATA.slice(1)},
+        rows: ['Item', 'Job'],
+        values: [{name: 'Qty', metric: 'sum'}],
+        saveData: false,
+      });
+      const read = await parts(workbook);
+      const cache = await read('xl/pivotCache/pivotCacheDefinition1.xml');
+
+      expect(cache).to.contain('<worksheetSource ref="A1:D5" sheet="Data"/>');
+      expect(cache).to.contain('<s v="A-100"/><s v="B-200"/><s v="C-300"/>');
+      expect(cache).to.match(/<cacheField name="Qty"[^>]*><sharedItems [^>]*maxValue="12.5"/);
+      expect(await read('xl/pivotCache/pivotCacheRecords1.xml')).to.equal(undefined);
+    });
+
+    it('rejects a field that is not in the given names', () => {
+      const workbook = new ExcelJS.Workbook();
+      const data = workbook.addWorksheet('Data');
+      expect(() =>
+        workbook.addWorksheet('Pivot').addPivotTable({
+          sourceSheet: data,
+          source: {names: ['Item'], records: []},
+          rows: ['Item'],
+          values: ['Qty'],
+        })
+      ).to.throw('"Qty" was not found');
+    });
+  });
+
   describe('Row outline', () => {
     it('writes a collapsed summary row above its hidden detail rows', async () => {
       const workbook = new ExcelJS.Workbook();

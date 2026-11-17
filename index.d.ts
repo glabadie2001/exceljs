@@ -2075,6 +2075,11 @@ export interface PivotTableModel {
 	filters?: string[];
 	/** false: write no cache records; Excel rebuilds them on open (default true) */
 	saveData?: boolean;
+	/**
+	 * Header names and row values of sourceSheet, read instead of its cells, for a
+	 * source sheet the caller writes itself (a large one). sourceSheet names it.
+	 */
+	source?: { names: string[]; records: unknown[][] };
 	/** auto-sort of row or column fields */
 	sort?: PivotTableSort[];
 	name?: string;
